@@ -1,0 +1,15 @@
+; Bit #0: LORAM - configures RAM vs. ROM at $a000-$bfff (C64 BASIC ROM)
+PortRegisterData = $01
+
+; Bit #6: End of file has been reached
+Status = $90
+
+FileNameLength = $b7
+LogicalFileNumber = $b8
+SecondaryAddress = $b9
+DeviceNumber = $ba
+
+Unused1 = $fb
+Unused2 = $fc
+Unused3 = $fd
+Unused4 = $fe

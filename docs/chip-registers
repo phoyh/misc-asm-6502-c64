@@ -1,0 +1,8 @@
+; Bits #0-#1: VIC bank.
+; Bit #2: RS232 TXD line, output bit.
+; Bit #3: Serial bus ATN OUT; 0 = High; 1 = Low.
+; Bit #4: Serial bus CLOCK OUT; 0 = High; 1 = Low.
+; Bit #5: Serial bus DATA OUT; 0 = High; 1 = Low.
+; Bit #6: Serial bus CLOCK IN; 0 = Low; 1 = High.
+; Bit #7: Serial bus DATA IN; 0 = Low; 1 = High.
+cCia2PortA = $dd00

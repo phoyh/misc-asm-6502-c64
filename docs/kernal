@@ -1,0 +1,42 @@
+; SET FILE PARAMETERS
+; A = Logical number
+; X = Device number
+; Y = Secondary address
+SETLFS = $ffba
+
+; SET FILE NAME PARAMETERS
+; A = File name length
+; X/Y = Pointer to file name
+SETNAM = $ffbd
+
+; OPEN FILE
+OPEN = $ffc0
+
+; CLOSE FILE
+; A = Logical number
+CLOSE = $ffc3
+
+; DEFINE FILE AS DEFAULT INPUT
+; X = Logical number
+CHKIN = $ffc6
+
+; DEFINE FILE AS DEFAULT OUTPUT
+; X = Logical number
+CHKOUT = $ffc9
+
+; CLOSE DEFAULT INPUT/OUTPUT FILES (SERIAL BUS: SEND UNTALK AND/OR UNLISTEN)
+CLRCHN = $ffcc
+
+; READ BYTE FROM DEFAULT INPUT
+; > A = Byte read
+CHRIN = $ffcf
+
+; WRITE BYTE TO DEFAULT OUTPUT
+; A = Byte to write
+CHROUT = $ffd2
+
+; LOAD OR VERIFY FILE
+; A = 0 (load) or 1-255 (verify)
+; X/Y = Load address (if secondary address = 0)
+; > X/Y = Address of last byte loaded/verified
+LOAD = $ffd5

@@ -1,0 +1,165 @@
+; Interrupt and RAM handling was only added later
+; => program starts at $cfb7 (53175) instead of $cf00 (52992)
+
+* = $cf00
+Main:
+    ; LOAD"DRUCK",8 - Amiga is listening and provides prepared byte array
+    ldx #$08
+    ldy #$01
+    jsr SETLFS
+    lda #$05
+    ldx #$e0
+    ldy #$cf
+    jsr SETNAM
+    lda #$00
+    jsr LOAD
+    ; have confidence that ,8,1 loading occurs into $080a
+    ; companion: https://github.com/phoyh/misc-asm-68k-amiga-ocs/blob/master/commands/PrintC64Star10#L200
+    ldx #$0a
+    ldy #$08
+    stx $fb
+    sty $fc
+    ; $fb points now to byte array to be printed - first two bytes ($fb) are length
+    lda #$e0
+    sta $fd
+    lda #$cf
+    sta $fe
+    ; $fd points now to character array of PrinterReady
+    lda #$93
+    jsr CHROUT
+    ldx #$0f
+    ldy #$00
+ShowReadyOnScreen:
+    lda ($fd),y
+    jsr CHROUT
+    inc $fd
+    bne ShowReadyOnScreen_LowOverflowConsidered
+    inc $fe
+ShowReadyOnScreen_LowOverflowConsidered:
+    dex 
+    bne ShowReadyOnScreen
+    ldx #$00
+    jsr CHRIN
+    ; set device = 4, logical number = 1
+    lda #$01
+    sta $b8
+    lda #$04
+    sta $ba
+    lda #$00
+    sta $b9
+    sta $b7
+    jsr OPEN
+    ldx #$01
+    jsr CHKOUT
+    ldy #$00
+    lda ($fb),y
+    sta $fd  ; length to be output (low)
+    inc $fb
+    bne PrintLength_NoOverflowForLowerByte
+    inc $fc
+PrintLength_NoOverflowForLowerByte:
+    lda ($fb),y
+    sta $fe  ; length to be output (high)
+    inc $fb
+    bne PrintContentLoop
+    inc $fc
+PrintContentLoop:
+    lda ($fb),y
+    jsr CHROUT
+    inc $fb
+    bne PrintContentLoop_PointerLowOverflowConsidered
+    inc $fc
+PrintContentLoop_PointerLowOverflowConsidered:
+    lda $fd
+    bne PrintContentLoop_LengthLowOverflowConsidered
+    lda $fe
+    beq CloseReturn
+    dec $fe
+PrintContentLoop_LengthLowOverflowConsidered:
+    dec $fd
+    ldy #$01
+IdleLoopToWaitForPrinter:
+    ldx #$70
+CountTo140ByX:
+    inx 
+    bne CountTo140ByX
+    dey 
+    bne IdleLoopToWaitForPrinter
+    jmp PrintContentLoop
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+CloseReturn:
+    jsr CLRCHN
+    lda #$01
+    jsr CLOSE
+    ; set LORAM for enabling BASIC ROM
+    lda $01
+    ora #$01
+    sta $01
+    cli 
+    rts 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+* = $cfb7
+Start:
+    sei
+    ; delete LORAM for disabling BASIC ROM
+    lda $01
+    and #$fe
+    sta $01
+    jmp Main
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+* = $cfe0
+PrinterReady:
+    ; DRUCKER BEREIT! @ ASCII
+    .byte $44,$52,$55,$43,$4b,$45,$52,$20,$42,$45,$52,$45,$49,$54,$3f,$00
+* = $cff0
+    nop

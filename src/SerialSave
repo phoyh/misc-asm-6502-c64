@@ -1,0 +1,402 @@
+; Interrupt and RAM handling was only added later
+; => program starts at $ce3a (53050) instead of $cf00 (52992)
+
+* = $ce00
+InitTransfer:
+    sei 
+InitialHandshake_WaitForDataInOne:
+	; Handshake / synchronize with amiga companion:
+	; https://github.com/phoyh/misc-asm-68k-amiga-ocs/blob/master/programs/C64Saver#L37-L40
+	; set CLOCK/DATA OUT to high
+    lda cCia2PortA
+    and #$c7
+    sta cCia2PortA
+    rol 
+    bcc InitialHandshake_WaitForDataInOne
+InitialHandshake_SwitchClockOut_WaitForDataInZero:
+    lda cCia2PortA
+    eor #$10
+    sta cCia2PortA
+    rol 
+    bcs InitialHandshake_SwitchClockOut_WaitForDataInZero
+    lda #$0f
+    sta cCia2PortA
+	; top-left screen ($0400) assumed to contain filename (delimited by a space)
+    jsr TransferScreen
+	; transfer message length, companion:
+	; https://github.com/phoyh/misc-asm-68k-amiga-ocs/blob/master/programs/C64Saver#L46-L49
+    stx $fd
+    jsr TransferByte
+    ldx MessageLengthLow
+    stx $fe
+    jsr TransferByte
+    lda BasicMemoryHigh
+    sta $fc
+    lda BasicMemoryLow
+    sta $fb
+	; resync necessary because Amiga allocates memory, companion:
+	; https://github.com/phoyh/misc-asm-68k-amiga-ocs/blob/master/programs/C64Saver#L61-L64
+    lda #$07
+    sta cCia2PortA
+TransferBasicPrg_Handshake_WaitForDataInZero:
+    lda cCia2PortA
+    rol 
+    bcs TransferBasicPrg_Handshake_WaitForDataInZero
+    lda #$0f
+    sta cCia2PortA
+TransferBasicPrg_Handshake_WaitForDataInOne:
+    lda cCia2PortA
+    rol 
+    bcc TransferBasicPrg_Handshake_WaitForDataInOne
+TransferBasicPrg_NextByte:
+    ldy #$00
+    lda ($fb),y
+    tax 
+    jsr TransferByte
+    ldx $fb
+    inx 
+    stx $fb
+    bne TransferBasicPrg_LowOverflowConsidered
+    ldx $fc
+    inx 
+    stx $fc
+TransferBasicPrg_LowOverflowConsidered:
+    ldx $fe
+    bne TransferBasicPrg_RemainingLengthHighConsidered
+    ldy $fd
+    beq FinishAndReturn
+    dey 
+    sty $fd
+TransferBasicPrg_RemainingLengthHighConsidered:
+    dex 
+    stx $fe
+    jmp TransferBasicPrg_NextByte
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+LoadFile_Clear:
+    jsr CLRCHN
+    jsr CHRIN
+    jmp InitTransfer
+LoadFile:
+	; device = 8, logical number = 1,
+	; file name: length = 1, pointer <- StarFileName
+    lda #$01
+    sta $b8
+    lda #$08
+    sta $ba
+    lda #$00
+    sta $b9
+    lda #$01
+    sta $b7
+    lda #$fb  ; or use #$fa if reading from file A
+    sta $bb
+    lda #$cf
+    sta $bc
+    jsr OPEN
+    ldx #$01
+    jsr CHKIN
+    lda BasicMemoryHigh
+    sta $fe
+    lda BasicMemoryLow
+    sta $fd
+LoadFile_NextByte:
+    jsr CHRIN
+    ldy #$00
+    sta ($fd),y
+    inc $fd
+    bne LoadFile_PointerLowOverflowConsidered
+    inc $fe
+LoadFile_PointerLowOverflowConsidered:
+    inc MessageLengthLow
+    bne LoadFile_LengthLowOverflowConsidered
+    inc MessageLengthHigh
+LoadFile_LengthLowOverflowConsidered:
+	; "bit" moves bit 6 of STATUS (eof) to overflow flag
+    bit $90
+    bvs LoadFile_Close
+    bvc LoadFile_NextByte
+    nop 
+FinishAndReturn:
+    lda cCia2PortA
+    and #$07
+    sta cCia2PortA
+    lda $01
+    ora #$01
+    sta $01
+    cli 
+    rts 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+LoadFile_Close:
+    lda #$01
+    jsr CLOSE
+    jmp LoadFile_Clear
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+TransferByte:
+	; X = Byte to be transferred
+    ldy #$08
+TransferByte_NextBit:
+    lda cCia2PortA
+    and #$0f
+    sta cCia2PortA
+    pha 
+    txa 
+    asl 
+    bcc TransferByte_DataOutZeroBit
+    tax 
+    pla 
+    ora #$20
+    jmp TransferByte_DataOutSet
+TransferByte_DataOutZeroBit:
+    tax 
+    pla 
+TransferByte_DataOutSet:
+    ora #$10
+    sta cCia2PortA
+    txa 
+    ldx #$01
+TransferByte_WaitLoop:
+    dex 
+    bne TransferByte_WaitLoop
+    tax 
+    dey 
+    bne TransferByte_NextBit
+    lda #$07
+    sta cCia2PortA
+    rts 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+* = $ce3a
+Start:
+    sei 
+    ; delete LORAM for disabling BASIC ROM
+    lda $01
+    and #$fe
+    sta $01
+    jmp InitMessageLengthAndStatus
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+InitMessageLengthAndStatus:
+    lda #$00
+    sta MessageLengthHigh
+    sta MessageLengthLow
+    sta $90
+    jmp LoadFile
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+TransferScreen:
+    lda #$00
+    sta $fb
+    lda #$04
+    sta $fc
+    ldy #$00
+TransferScreen_NextCharacter:
+    lda ($fb),y
+    tax 
+    and #$bf
+    cmp #$20
+    bne TransferScreen_NextCharacter_Prepared
+    ldx #$00
+TransferScreen_NextCharacter_Prepared:
+    txa 
+    pha 
+    tya 
+    pha 
+    jsr TransferByte
+    pla 
+    tay 
+    iny 
+    pla 
+    bne TransferScreen_NextCharacter
+    ldx MessageLengthHigh
+    rts 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+    nop 
+* = $cffa
+LetterAFileName:
+	; A @ ASCII
+	byte.b 65
+* = $cffb
+StarFileName:
+	; * @ ASCII
+	byte.b 42
+BasicMemoryHigh:
+	byte.b 8
+BasicMemoryLow:
+	byte.b 1
+MessageLengthHigh:
+	byte.b 64
+MessageLengthLow:
+	byte.b 126
+	byte.b 0
